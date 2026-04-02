@@ -39,6 +39,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  
+  /* Your newly generated cream/gold weave palette */
+  --color-weave-100: var(--weave-100);
+  --color-weave-400: var(--weave-400);
+  --color-weave-500: var(--weave-500);
+  --color-weave-800: var(--weave-800);
+  --color-weave-900: var(--weave-900);
+  
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -81,6 +89,13 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  
+  /* New Light Cream Palette mapped */
+  --weave-100: #F7F4D5; /* The exact color you requested */
+  --weave-400: #D4C978; 
+  --weave-500: #B5A651;
+  --weave-800: #594E1B;
+  --weave-900: #332C0D; /* Darkest shade for contrast */
 }
 
 .dark {
@@ -115,6 +130,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  
+  --weave-100: #F7F4D5; 
+  --weave-400: #D4C978; 
+  --weave-500: #B5A651;
+  --weave-800: #594E1B;
+  --weave-900: #332C0D; 
 }
 
 @layer base {
@@ -127,4 +148,30 @@
   html {
     @apply font-sans;
   }
+}
+
+@layer utilities {
+  .bg-pattern-grid {
+    background-image: 
+      linear-gradient(to right, #F7F4D515 1px, transparent 1px),
+      linear-gradient(to bottom, #F7F4D515 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 40%, transparent 100%);
+  }
+
+  .bg-pattern-dots {
+    background-image: radial-gradient(#F7F4D525 1px, transparent 1px);
+    background-size: 24px 24px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 40%, transparent 100%);
+  }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
 }
