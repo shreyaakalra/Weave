@@ -7,36 +7,63 @@ import { OnboardingState } from "./OnboardingFlow";
 import MatchRevealCard, { MatchResponse } from "./MatchRevealCard";
 import LoadingGraph from "./LoadingGraph";
 import AuthWall from "./AuthWall";
+import ChatScreen from "../ChatScreen";
 
 export default function DoneScreen({ state }: { state: OnboardingState }) {
   const hasAttempted = useRef(false);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [matchResult, setMatchResult] = useState<MatchResponse | null>(null);
   const [showSignUp, setShowSignUp] = useState(false);
   
-  // THE FIX: Memory for people we have already seen/passed!
+  // 1. NEXT.JS HYDRATION LOCK (Prevents visual glitches)
+  const [isRestored, setIsRestored] = useState(false);
+
+  // 2. MEMORY STATES (Initialized as null)
+  const [matchResult, setMatchResult] = useState<MatchResponse | null>(null);
+  const [activeChat, setActiveChat] = useState<MatchResponse | null>(null);
   const [seenIds, setSeenIds] = useState<string[]>([]);
 
   const { isSignedIn, user, isLoaded } = useUser();
 
+  // 3. PULL FROM MEMORY ON MOUNT
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedMatch = localStorage.getItem("weaveMatchResult");
+      const savedChat = localStorage.getItem("weaveActiveChat");
+      const savedSeen = localStorage.getItem("weaveSeenIds");
+
+      if (savedMatch) setMatchResult(JSON.parse(savedMatch));
+      if (savedChat) setActiveChat(JSON.parse(savedChat));
+      if (savedSeen) setSeenIds(JSON.parse(savedSeen));
+    }
+    setIsRestored(true);
+  }, []);
+
+  // 4. SAVE TO MEMORY EVERY TIME SOMETHING CHANGES
+  useEffect(() => {
+    if (isRestored && typeof window !== "undefined") {
+      if (matchResult) localStorage.setItem("weaveMatchResult", JSON.stringify(matchResult));
+      else localStorage.removeItem("weaveMatchResult");
+
+      if (activeChat) localStorage.setItem("weaveActiveChat", JSON.stringify(activeChat));
+      else localStorage.removeItem("weaveActiveChat");
+
+      localStorage.setItem("weaveSeenIds", JSON.stringify(seenIds));
+    }
+  }, [matchResult, activeChat, seenIds, isRestored]);
+
   // Watch for the user to finish signing up via Clerk
   useEffect(() => {
-    if (isLoaded && isSignedIn && user && showSignUp && !matchResult && !isAnalyzing && !hasAttempted.current) {
+    // Only auto-trigger the match if they literally JUST clicked sign up 
+    if (isLoaded && isSignedIn && user && showSignUp && !matchResult && !activeChat && !isAnalyzing && !hasAttempted.current) {
       hasAttempted.current = true; 
       handleFindMatch(user.id);
     }
-    // Also trigger if they refresh the page and are ALREADY signed in, but haven't searched yet
-    if (isLoaded && isSignedIn && user && !matchResult && !isAnalyzing && !hasAttempted.current) {
-        hasAttempted.current = true;
-        handleFindMatch(user.id);
-    }
-  }, [isLoaded, isSignedIn, user, showSignUp, matchResult, isAnalyzing]);
+  }, [isLoaded, isSignedIn, user, showSignUp, matchResult, activeChat, isAnalyzing]);
 
   const handleFindMatch = async (clerkId: string) => {
     setIsAnalyzing(true);
     try {
-      // THE FIX: Send the seenIds to the backend!
       const payload = { ...state, clerkId, seenIds };
       const [res] = await Promise.all([
         fetch("/api/match", {
@@ -44,7 +71,7 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         }),
-        new Promise(resolve => setTimeout(resolve, 5000)), 
+        new Promise(resolve => setTimeout(resolve, 4000)), 
       ]);
       
       const data = await res.json();
@@ -64,28 +91,47 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
 
   // --- THE TRAFFIC COP ROUTING --- //
 
+  // Wait until memory is fully loaded before showing anything!
+  if (!isRestored) return null; 
+
+  // 1. If we are in an active chat, show the Chat Screen
+  if (activeChat) {
+    return (
+      <ChatScreen 
+        match={activeChat} 
+        onClose={() => setActiveChat(null)} 
+      />
+    );
+  }
+
+  // 2. If we have a match, show the card
   if (matchResult) {
     return (
       <MatchRevealCard 
         matchResult={matchResult} 
         state={state}
         onPass={() => {
-          // THE FIX: When they pass, add this person's ID to the seen list, then clear the screen
           setSeenIds((prev) => [...prev, matchResult.v_id]);
-          setMatchResult(null);
+          setMatchResult(null); // This automatically deletes it from memory too!
         }} 
+        onChat={() => {
+          setActiveChat(matchResult);
+        }}
       />
     );
   }
 
+  // 3. If we are waiting for the API/Timer, show the animation
   if (isAnalyzing) {
     return <LoadingGraph />;
   }
 
+  // 4. If they clicked the button but haven't signed up, show Clerk
   if (showSignUp && !isSignedIn) {
     return <AuthWall />;
   }
 
+  // 5. Default state: The "Find my match" / "Find next match" screen
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -111,7 +157,6 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
         onClick={() => {
-          // THE FIX: If they are already logged in, just run the search!
           if (isSignedIn && user) {
             handleFindMatch(user.id);
           } else {

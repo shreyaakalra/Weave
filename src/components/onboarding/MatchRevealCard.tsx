@@ -20,12 +20,14 @@ export type MatchResponse = {
 
 export default function MatchRevealCard({ 
   matchResult, 
-  state, // <-- Now we receive the state from DoneScreen
-  onPass 
+  state, 
+  onPass,
+  onChat // <-- Add this here
 }: { 
   matchResult: MatchResponse;
   state: OnboardingState;
   onPass: () => void;
+  onChat: () => void; // <-- And here
 }) {
 
   // --- 1. Basic Profile Info ---
@@ -131,7 +133,7 @@ export default function MatchRevealCard({
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => alert(`Opening chat with ${nickname}...`)}
+              onClick={onChat}
               className="w-full py-4 bg-[#F7F4D5] text-[#0A3323] font-bold rounded-2xl text-base tracking-wide"
             >
               Start chatting →
