@@ -6,11 +6,11 @@ export async function POST(req: Request) {
     const state = await req.json();
     
     // 2. Generate a unique ID for this new user
-    const userId = `user_${Date.now()}`; 
+    const userId = state.clerkId || `user_${Date.now()}`;
 
     // 3. Format the interests into TigerGraph's Edge structure
     const interestEdges: Record<string, { passion_score: { value: number } }> = {};
-    
+
     state.interests.forEach((interest: string) => {
       interestEdges[interest] = { passion_score: { value: 5 } };
     });
