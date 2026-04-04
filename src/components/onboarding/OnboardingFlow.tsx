@@ -71,6 +71,17 @@ export default function OnboardingFlow() {
     setState((prev) => ({ ...prev, ...newState }));
   };
 
+  const isStepValid = () => {
+    switch (step) {
+      case 0: 
+        return state.name.trim() !== "" && state.nickname.trim() !== "" && state.city.trim() !== "";
+      case 1: 
+        return state.interests.length > 0; 
+      default:
+        return true; 
+    }
+  };
+
   const renderStep = () => {
     switch (step) {
       case 0: return <StepBasics state={state} update={update} />;
@@ -136,6 +147,7 @@ export default function OnboardingFlow() {
               )}
               <button
                 onClick={next}
+                disabled={!isStepValid()}
                 className="flex-1 py-4 bg-[#F7F4D5] text-[#0A3323] font-semibold rounded-2xl hover:scale-[1.02] active:scale-95 transition-all"
               >
                 {step === 9 ? "Find my match →" : "Continue →"}
