@@ -1,125 +1,112 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useUser } from "@clerk/nextjs";
+import { motion } from "framer-motion";
 import { OnboardingState } from "./OnboardingFlow";
-import { SignUp, useUser } from "@clerk/nextjs";
 
-type MatchResponse = {
-  Top?: Array<{
-    v_id: string;
-    attributes?: {
-      score?: number;
-    };
-  }>;
-};
+// Import your new shiny components!
+import MatchRevealCard, { MatchResponse } from "./MatchRevealCard";
+import LoadingGraph from "./LoadingGraph";
+import AuthWall from "./AuthWall";
 
 export default function DoneScreen({ state }: { state: OnboardingState }) {
-  // 1. All our state variables
-  const [isLoading, setIsLoading] = useState(false);
+  const hasAttempted = useRef(false);
+
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResponse | null>(null);
   const [showSignUp, setShowSignUp] = useState(false);
-  
-  // 2. Clerk's hooks to check auth status
+
   const { isSignedIn, user, isLoaded } = useUser();
 
-  // 3. THE LISTENER: Watch for the exact moment they finish signing up
+  // Watch for the user to finish signing up
   useEffect(() => {
-    // If they just created an account, and we haven't matched them yet:
-    if (isLoaded && isSignedIn && user && showSignUp && !matchResult) {
-      handleFindMatch(user.id); // Pass their real, secure Clerk ID!
+    if (isLoaded && isSignedIn && user && showSignUp && !matchResult && !isAnalyzing && !hasAttempted.current) {
+      hasAttempted.current = true; 
+      handleFindMatch(user.id);
     }
-  }, [isLoaded, isSignedIn, user, showSignUp, matchResult]);
+    // Also trigger if they refresh the page and are ALREADY signed in
+    if (isLoaded && isSignedIn && user && !matchResult && !isAnalyzing && !hasAttempted.current) {
+        hasAttempted.current = true;
+        handleFindMatch(user.id);
+    }
+  }, [isLoaded, isSignedIn, user, showSignUp, matchResult, isAnalyzing]);
 
-  // 4. The API call (now accepts the clerkId)
   const handleFindMatch = async (clerkId: string) => {
-    setIsLoading(true);
+    setIsAnalyzing(true);
     try {
-      // Add the clerkId to the payload we send to your backend
       const payload = { ...state, clerkId };
-
-      const res = await fetch("/api/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
+      const [res] = await Promise.all([
+        fetch("/api/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+        new Promise(resolve => setTimeout(resolve, 5000)), 
+      ]);
+      
       const data = await res.json();
-
+      
+      // If we got a match, show it!
       if (data.success && data.match && data.match.length > 0) {
         setMatchResult(data.match[0]);
+      } else {
+        // If it was successful but returned NO data:
+        alert("We searched the graph, but couldn't find a match right now. Ensure you have other users in your database!");
       }
     } catch (error) {
-      console.error("Failed to fetch match", error);
+      // If the API crashed entirely:
+      console.error("Match failed", error);
+      alert("API Error: Check your terminal to see why TigerGraph failed.");
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
-  // UI STATE 1: WE HAVE A MATCH (The Reveal)
+  // --- THE TRAFFIC COP ROUTING --- //
+
+  // 1. If we have a match, show the card
   if (matchResult) {
-    const matchedUserId = matchResult.Top?.[0]?.v_id || "A mysterious stranger";
-
-    return (
-      <div className="text-center py-8 animate-in fade-in zoom-in duration-500">
-        <div className="text-xs tracking-widest text-[#F7F4D5]/50 mb-2">WE FOUND THEM</div>
-        <div className="text-5xl font-black mb-4">Meet your match.</div>
-
-        <div className="bg-[#112e1e] border border-[#1a5c38] rounded-3xl p-8 mt-8 text-left max-w-md mx-auto">
-          <div className="text-3xl font-bold mb-2 text-[#F7F4D5]">
-            {matchedUserId}
-          </div>
-          <p className="text-[#F7F4D5]/70 mb-6">
-            The graph calculated a high compatibility score based on your shared interests and vibe!
-          </p>
-          <button
-            onClick={() => alert("Chat feature coming soon!")}
-            className="w-full py-4 bg-[#F7F4D5] text-[#0A3323] font-semibold rounded-2xl hover:scale-[1.02] transition-transform"
-          >
-            Say Hello →
-          </button>
-        </div>
-      </div>
-    );
+    return <MatchRevealCard matchResult={matchResult} onPass={() => setMatchResult(null)} />;
   }
 
-  // UI STATE 2: THEY CLICKED THE BUTTON (The Auth Wall)
+  // 2. If we are waiting for the API/Timer, show the animation
+  if (isAnalyzing) {
+    return <LoadingGraph />;
+  }
+
+  // 3. If they clicked the button but haven't signed up, show Clerk
+  // NOTE: Ensure <AuthWall /> uses <SignUp forceRedirectUrl="/onboarding" routing="hash" />
   if (showSignUp && !isSignedIn) {
-    return (
-      <div className="text-center py-8 animate-in fade-in zoom-in duration-500 flex flex-col items-center">
-        <div className="text-xs tracking-widest text-[#F7F4D5]/50 mb-2">LAST STEP</div>
-        <div className="text-4xl font-black mb-4">Save your profile.</div>
-        <p className="text-[#F7F4D5]/70 mb-8">
-          Create a quick account to permanently save your Weave profile and see who you matched with.
-        </p>
-        
-        {/* Clerk's drop-in UI. The hash routing keeps them right on this page! */}
-        <div className="shadow-2xl rounded-2xl overflow-hidden">
-            <SignUp routing="hash" />
-        </div>
-      </div>
-    );
+    return <AuthWall />;
   }
 
-  // UI STATE 3: DEFAULT SCREEN (Before clicking)
+  // 4. Default state: The "Find my match" screen
   return (
-    <div className="text-center py-8">
-      <div className="text-5xl font-black mb-4">You&apos;re in, {state.nickname || state.name || "friend"}.</div>
-      <p className="text-[#F7F4D5]/70 mb-8">
-        Your profile is built.<br />
-        Now let the graph find your person.
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="flex flex-col items-center text-center py-8"
+    >
+      <div className="text-5xl font-black mb-4 text-[#F7F4D5] leading-tight">
+        You&apos;re in,<br />
+        <span className="text-[#F7F4D5]/60">{state.nickname || state.name || "friend"}.</span>
+      </div>
+      <p className="text-[#F7F4D5]/55 mb-3 text-base leading-relaxed">
+        Your profile is built.<br />Now let the graph find your person.
       </p>
-
-      <p className="text-xs text-[#F7F4D5]/40 mb-8">
-        Powered by TigerGraph — traversing{" "}
+      <p className="text-xs text-[#F7F4D5]/25 mb-12 uppercase tracking-widest">
+        Powered by TigerGraph &mdash; traversing{" "}
         {(800 + (state.interests?.length || 0) * 47).toLocaleString()} interest nodes
       </p>
 
-      <button
-        // CHANGED: Instead of calling the API, it reveals the Signup form!
+      <motion.button
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.96 }}
         onClick={() => setShowSignUp(true)}
-        disabled={isLoading || (showSignUp && isSignedIn)}
-        className="px-12 py-5 bg-[#F7F4D5] text-[#0A3323] font-semibold rounded-3xl text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+        className="px-14 py-5 bg-[#F7F4D5] text-[#0A3323] font-bold rounded-full text-lg tracking-wide"
       >
-        {isLoading || (showSignUp && isSignedIn) ? "Consulting the Graph..." : "Find my match →"}
-      </button>
-    </div>
+        Find my match →
+      </motion.button>
+    </motion.div>
   );
 }

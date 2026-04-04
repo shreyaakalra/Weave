@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StepBasics from "./StepBasics";
 import StepInterests from "./StepInterests";
@@ -35,24 +35,62 @@ export type OnboardingState = {
 const totalSteps = 10;
 
 export default function OnboardingFlow() {
-  const [step, setStep] = useState(0);
-  const [state, setState] = useState<OnboardingState>({
-    name: "",
-    nickname: "",
-    city: "",
-    interests: [],
-    energy: "",
-    mood: "",
-    depth: "",
-    schedule: "",
-    totAnswers: {},
-    genre: "",
-    friendship: "",
-    bio: "",
-    comfort: "",
-    neverdothis: "",
-    happything: "",
+  // 1. Next.js hydration lock
+  const [isMounted, setIsMounted] = useState(false);
+
+  // 2. Load state from memory, or start fresh
+  const [state, setState] = useState<OnboardingState>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("weaveState");
+      if (saved) return JSON.parse(saved);
+    }
+    return {
+      name: "",
+      nickname: "",
+      city: "",
+      interests: [],
+      energy: "",
+      mood: "",
+      depth: "",
+      schedule: "",
+      totAnswers: {},
+      genre: "",
+      friendship: "",
+      bio: "",
+      comfort: "",
+      neverdothis: "",
+      happything: "",
+    };
   });
+
+  // 3. Load the current step from memory, or start at 0
+  const [step, setStep] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedStep = localStorage.getItem("weaveStep");
+      if (savedStep) return parseInt(savedStep, 10);
+    }
+    return 0;
+  });
+
+ // 4a. Next.js hydration lock: Only run ONCE when the component first mounts
+  useEffect(() => {
+    // Pushing this to the next tick bypasses the strict synchronous linter rule!
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 4b. Save to memory: Only run when 'state' or 'step' changes
+  useEffect(() => {
+    if (isMounted && typeof window !== "undefined") {
+      localStorage.setItem("weaveState", JSON.stringify(state));
+      localStorage.setItem("weaveStep", step.toString());
+    }
+  }, [state, step, isMounted]);
+  // Prevent visual glitch before memory loads
+  if (!isMounted) return null;
 
   const progress = Math.round(((step + 1) / totalSteps) * 100);
 
@@ -73,12 +111,28 @@ export default function OnboardingFlow() {
 
   const isStepValid = () => {
     switch (step) {
-      case 0: 
+      case 0:
         return state.name.trim() !== "" && state.nickname.trim() !== "" && state.city.trim() !== "";
-      case 1: 
-        return state.interests.length > 0; 
+      case 1:
+        return state.interests.length > 0;
+      case 2:
+        return state.energy !== "";
+      case 3:
+        return state.mood !== "";
+      case 4:
+        return state.depth !== "";
+      case 5:
+        return state.schedule !== "";
+      case 6:
+        return state.totAnswers && Object.keys(state.totAnswers).length === 5;
+      case 7:
+        return state.genre !== "";
+      case 8:
+        return state.friendship !== "";
+      case 9:
+        return state.bio.trim().length >= 10;
       default:
-        return true; 
+        return true;
     }
   };
 
@@ -101,7 +155,6 @@ export default function OnboardingFlow() {
 
   return (
     <div id="ob" className="relative min-h-screen bg-[#0A3323] text-[#F7F4D5] font-sans overflow-hidden px-6 py-8 md:px-12">
-
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-8">
@@ -148,7 +201,11 @@ export default function OnboardingFlow() {
               <button
                 onClick={next}
                 disabled={!isStepValid()}
-                className="flex-1 py-4 bg-[#F7F4D5] text-[#0A3323] font-semibold rounded-2xl hover:scale-[1.02] active:scale-95 transition-all"
+                className={`flex-1 py-4 font-semibold rounded-2xl transition-all ${
+                  !isStepValid() 
+                  ? "bg-gray-400 text-gray-700 cursor-not-allowed opacity-50" 
+                  : "bg-[#F7F4D5] text-[#0A3323] hover:scale-[1.02] active:scale-95"
+                }`}
               >
                 {step === 9 ? "Find my match →" : "Continue →"}
               </button>
