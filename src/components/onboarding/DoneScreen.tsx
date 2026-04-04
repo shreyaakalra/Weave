@@ -1,7 +1,7 @@
 import { OnboardingState } from "./OnboardingFlow";
 
 export default function DoneScreen({ state }: { state: OnboardingState }) {
-  const displayedInterests = state.interests.slice(0, 6);
+  // const displayedInterests = state.interests.slice(0, 6);
 
   return (
     <div className="text-center py-8">
@@ -11,13 +11,13 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
         Now let the graph find your person.
       </p>
 
-      <div className="flex flex-wrap justify-center gap-2 mb-8">
+      {/* <div className="flex flex-wrap justify-center gap-2 mb-8">
         {displayedInterests.map((tag) => (
           <div key={tag} className="px-5 py-2 bg-[#112e1e] border border-[#1a5c38] rounded-3xl text-sm">
             {tag}
           </div>
         ))}
-      </div>
+      </div> */}
 
       <p className="text-xs text-[#F7F4D5]/40 mb-8">
         Powered by TigerGraph — traversing{" "}

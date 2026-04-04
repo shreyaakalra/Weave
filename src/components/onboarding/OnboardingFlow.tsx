@@ -29,6 +29,7 @@ export type OnboardingState = {
   bio: string;
   comfort: string;
   neverdothis: string;
+  happything: string;
 };
 
 const totalSteps = 10;
@@ -50,6 +51,7 @@ export default function OnboardingFlow() {
     bio: "",
     comfort: "",
     neverdothis: "",
+    happything: "",
   });
 
   const progress = Math.round(((step + 1) / totalSteps) * 100);
@@ -62,8 +64,7 @@ export default function OnboardingFlow() {
   const prev = () => step > 0 && setStep((s) => s - 1);
 
   const showDone = () => {
-    // You can navigate to /matches or show the done screen
-    setStep(totalSteps); // Done screen
+    setStep(totalSteps);
   };
 
   const update = (newState: Partial<OnboardingState>) => {
@@ -123,21 +124,23 @@ export default function OnboardingFlow() {
 
         {/* Navigation */}
         {step < 10 && (
-          <div className="flex gap-3 mt-12">
-            {step > 0 && (
+          <div className="flex justify-center mt-12">
+            <div className="flex gap-3 w-full max-w-[420px]">
+              {step > 0 && (
+                <button
+                  onClick={prev}
+                  className="flex-1 py-4 border border-[#F7F4D5]/30 text-[#F7F4D5]/70 rounded-2xl hover:border-[#F7F4D5]/60 transition-colors"
+                >
+                  ← Back
+                </button>
+              )}
               <button
-                onClick={prev}
-                className="flex-1 py-4 border border-[#F7F4D5]/30 text-[#F7F4D5]/70 rounded-2xl hover:border-[#F7F4D5]/60 transition-colors"
+                onClick={next}
+                className="flex-1 py-4 bg-[#F7F4D5] text-[#0A3323] font-semibold rounded-2xl hover:scale-[1.02] active:scale-95 transition-all"
               >
-                ← Back
+                {step === 9 ? "Find my match →" : "Continue →"}
               </button>
-            )}
-            <button
-              onClick={next}
-              className="flex-1 py-4 bg-[#F7F4D5] text-[#0A3323] font-semibold rounded-2xl hover:scale-[1.02] active:scale-95 transition-all"
-            >
-              {step === 9 ? "Find my match →" : "Continue →"}
-            </button>
+            </div>
           </div>
         )}
       </div>
