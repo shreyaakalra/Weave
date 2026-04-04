@@ -13,6 +13,7 @@ import StepGenre from "./StepGenre";
 import StepFriendship from "./StepFriendship";
 import StepBio from "./StepBio";
 import DoneScreen from "./DoneScreen";
+import Link from "next/link";
 
 export type OnboardingState = {
   name: string;
@@ -162,9 +163,12 @@ export default function OnboardingFlow() {
 
         {/* Top bar — always show wordmark, hide counter on done screen */}
         <div className="flex items-center justify-between mb-8">
-          <div className="font-serif text-xl font-black tracking-tighter">
-            Weave.
-          </div>
+          <Link href={"/"}>
+            <div className="font-serif text-xl font-black tracking-tighter">
+              Weave.
+            </div>
+          </Link>
+          
           {!isDoneScreen && (
             <div className="text-xs tracking-widest text-[#F7F4D5]/50 font-medium">
               {step + 1} of {TOTAL_STEPS}

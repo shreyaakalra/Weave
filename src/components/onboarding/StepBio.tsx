@@ -55,7 +55,9 @@ function FloatingTextarea({
             fontSize: active ? "10px" : "13px",
             letterSpacing: active ? "0.08em" : "0",
             color: active
-              ? focused ? "rgba(247,244,213,0.7)" : "rgba(247,244,213,0.4)"
+              ? focused
+                ? "rgba(247,244,213,0.7)"
+                : "rgba(247,244,213,0.4)"
               : "rgba(247,244,213,0.5)",
             marginBottom: active ? "6px" : "0",
             transition: "all 0.25s ease",
@@ -95,7 +97,8 @@ function FloatingTextarea({
             left: "20px",
             right: "20px",
             height: "1px",
-            background: "linear-gradient(90deg, transparent, rgba(247,244,213,0.4), transparent)",
+            background:
+              "linear-gradient(90deg, transparent, rgba(247,244,213,0.4), transparent)",
             opacity: focused ? 1 : 0,
             transition: "opacity 0.3s ease",
           }}
@@ -172,7 +175,9 @@ function FloatingInput({
             fontSize: active ? "10px" : "14px",
             letterSpacing: active ? "0.08em" : "0",
             color: active
-              ? focused ? "rgba(247,244,213,0.7)" : "rgba(247,244,213,0.4)"
+              ? focused
+                ? "rgba(247,244,213,0.7)"
+                : "rgba(247,244,213,0.4)"
               : "rgba(247,244,213,0.5)",
             marginBottom: active ? "4px" : "0",
             transition: "all 0.25s ease",
@@ -210,7 +215,8 @@ function FloatingInput({
             left: "20px",
             right: "20px",
             height: "1px",
-            background: "linear-gradient(90deg, transparent, rgba(247,244,213,0.4), transparent)",
+            background:
+              "linear-gradient(90deg, transparent, rgba(247,244,213,0.4), transparent)",
             opacity: focused ? 1 : 0,
             transition: "opacity 0.3s ease",
           }}
@@ -251,8 +257,21 @@ export default function StepBio({
           textAlign: "center",
         }}
       >
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-          <div style={{ width: "20px", height: "1px", background: "rgba(247,244,213,0.35)" }} />
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "10px",
+          }}
+        >
+          <div
+            style={{
+              width: "20px",
+              height: "1px",
+              background: "rgba(247,244,213,0.35)",
+            }}
+          />
           <span
             style={{
               fontSize: "10px",
@@ -264,7 +283,13 @@ export default function StepBio({
           >
             A little about you
           </span>
-          <div style={{ width: "20px", height: "1px", background: "rgba(247,244,213,0.35)" }} />
+          <div
+            style={{
+              width: "20px",
+              height: "1px",
+              background: "rgba(247,244,213,0.35)",
+            }}
+          />
         </div>
 
         <h1
@@ -280,7 +305,9 @@ export default function StepBio({
         >
           Tell us something
           <br />
-          <em style={{ fontStyle: "italic", color: "rgba(247,244,213,0.75)" }}>real about you.</em>
+          <em style={{ fontStyle: "italic", color: "rgba(247,244,213,0.75)" }}>
+            real about you.
+          </em>
         </h1>
 
         <p
@@ -299,8 +326,15 @@ export default function StepBio({
 
       {/* Fields */}
       <div style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "420px" }}>
-
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            width: "100%",
+            maxWidth: "420px",
+          }}
+        >
           <FloatingTextarea
             label="Your bio"
             value={state.bio || ""}
@@ -317,7 +351,16 @@ export default function StepBio({
             placeholder="The Office, Spirited Away..."
             delay={250}
             icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
                 <polyline points="17 2 12 7 7 2" />
               </svg>
@@ -331,7 +374,16 @@ export default function StepBio({
             placeholder="Small talk at parties, pineapple on pizza..."
             delay={350}
             icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
               </svg>
@@ -345,12 +397,20 @@ export default function StepBio({
             placeholder="First sip of chai, Cold water after a walk"
             delay={450}
             icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402C1 3.307 4.375 1 7.498 1c1.947 0 3.762.9 4.502 2.228C12.74 1.9 14.555 1 16.502 1 19.625 1 23 3.307 23 7.191c0 4.105-5.37 8.863-11 14.402z" />
               </svg>
             }
           />
-
         </div>
       </div>
     </div>

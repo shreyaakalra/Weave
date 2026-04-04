@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { OnboardingState } from "./OnboardingFlow";
 
 export type MatchResponse = {
   v_id: string;
@@ -7,21 +8,57 @@ export type MatchResponse = {
     city?: string;
     bio?: string;
     score?: number;
+    energy?: string;
+    mood?: string;
+    depth?: string;
+    schedule?: string;
+    genre?: string;
+    friendship_type?: string;
+    [key: string]: string | number | boolean | null | undefined; 
   };
 };
 
 export default function MatchRevealCard({ 
   matchResult, 
+  state, // <-- Now we receive the state from DoneScreen
   onPass 
 }: { 
   matchResult: MatchResponse;
+  state: OnboardingState;
   onPass: () => void;
 }) {
-  const nickname = matchResult.attributes?.nickname || matchResult.v_id || "Someone special";
-  const city = matchResult.attributes?.city || "";
-  const bio = matchResult.attributes?.bio || "";
-  const rawScore = matchResult.attributes?.score;
-  const score = rawScore ? Math.min(Math.round(rawScore), 100) : 87;
+
+  // --- 1. Basic Profile Info ---
+  const matchAttrs = matchResult.attributes || {};
+  const nickname = matchAttrs.nickname || matchResult.v_id || "Someone special";
+  const city = matchAttrs.city || "";
+  const bio = matchAttrs.bio || "";
+
+  // --- 2. Calculate Energy ---
+  let energyScore = 50;
+  if (state.energy === matchAttrs.energy) {
+    energyScore = 98; // Exact match
+  } else if (state.energy === "both" || matchAttrs.energy === "both") {
+    energyScore = 78; // One person is adaptable
+  } else {
+    energyScore = 45; // Opposites
+  }
+
+  // --- 3. Calculate Vibe ---
+  const vibeTraits = ['mood', 'depth', 'schedule', 'genre', 'friendship_type'];
+  let matchingTraits = 0;
+  vibeTraits.forEach(trait => {
+    // Note: your state uses 'friendship', the DB uses 'friendship_type'
+    const myTrait = trait === 'friendship_type' ? state.friendship : state[trait as keyof typeof state];
+    if (myTrait === matchAttrs[trait]) matchingTraits++;
+  });
+  // Baseline 40%, plus up to 60% based on exact trait overlaps
+  const vibeScore = Math.round(40 + (matchingTraits / vibeTraits.length) * 60);
+
+  // --- 4. Calculate Interests ---
+  // Assuming 130 is a "perfect" raw score from TigerGraph based on your data. Caps at 99%.
+  const rawScore = matchAttrs.score || 72;
+  const interestScore = Math.min(99, Math.round((rawScore / 130) * 100));
 
   return (
     <AnimatePresence>
@@ -50,7 +87,7 @@ export default function MatchRevealCard({
             transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="absolute -top-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-[#0A3323] border-2 border-[#F7F4D5]/20 flex flex-col items-center justify-center z-10"
           >
-            <span className="text-lg font-black text-[#F7F4D5] leading-none">{score}%</span>
+            <span className="text-lg font-black text-[#F7F4D5] leading-none">{interestScore}%</span>
             <span className="text-[9px] text-[#F7F4D5]/40 uppercase tracking-wide leading-none mt-0.5">match</span>
           </motion.div>
 
@@ -77,12 +114,12 @@ export default function MatchRevealCard({
               </p>
             )}
 
-            {/* Compatibility breakdown */}
+            {/* Compatibility breakdown - NOW USING REAL MATH */}
             <div className="grid grid-cols-3 gap-2 mb-8">
               {[
-                { label: "Interests", val: Math.min(score + 5, 100) },
-                { label: "Energy", val: Math.max(score - 8, 60) },
-                { label: "Vibe", val: Math.max(score - 3, 70) },
+                { label: "Interests", val: interestScore },
+                { label: "Energy", val: energyScore },
+                { label: "Vibe", val: vibeScore },
               ].map(d => (
                 <div key={d.label} className="bg-[#0A3323] rounded-2xl p-3 text-center">
                   <div className="text-lg font-black text-[#F7F4D5]">{d.val}%</div>
