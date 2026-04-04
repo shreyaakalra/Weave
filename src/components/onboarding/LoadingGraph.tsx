@@ -185,34 +185,46 @@ export default function LoadingGraph() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[480px] py-8">
+    // THE FIX: Full-bleed takeover layout with a subtle radial glow
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center w-full h-[100dvh] bg-[#0A3323] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#0d3d29] to-[#0A3323] overflow-hidden px-6"
+    >
       <canvas
         ref={canvasRef}
         width={220}
         height={220}
         style={{ background: "transparent" }}
+        className="scale-110 md:scale-125 mb-4" // Makes the graph slightly larger
       />
+
       <motion.div
         key={loadingText}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="text-base font-bold text-[#F7F4D5] mt-6 tracking-wide"
+        className="text-lg md:text-xl font-bold text-[#F7F4D5] mt-6 tracking-wide text-center"
       >
         {loadingText}
       </motion.div>
-      <div className="text-xs text-[#F7F4D5]/35 mt-2 uppercase tracking-widest">
+
+      <div className="text-[10px] md:text-xs text-[#F7F4D5]/35 mt-3 uppercase tracking-widest text-center">
         TigerGraph traversal in progress
       </div>
-      <div className="w-48 h-px bg-[#F7F4D5]/10 rounded-full mt-8 overflow-hidden">
+
+      {/* Responsive progress bar */}
+      <div className="w-full max-w-[240px] h-1 bg-[#F7F4D5]/10 rounded-full mt-10 overflow-hidden relative">
         <motion.div
-          className="h-full bg-[#F7F4D5] rounded-full"
+          className="absolute top-0 left-0 h-full bg-[#F7F4D5] rounded-full shadow-[0_0_10px_rgba(247,244,213,0.5)]"
           initial={{ width: "0%" }}
           animate={{ width: `${loadingPct}%` }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         />
       </div>
-      <div className="text-xs text-[#F7F4D5]/25 mt-2">{loadingPct}%</div>
-    </div>
+
+      <div className="text-xs font-medium text-[#F7F4D5]/40 mt-3">{loadingPct}%</div>
+    </motion.div>
   );
 }

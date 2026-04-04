@@ -2,9 +2,25 @@
 
 import Link from "next/link";
 import { Button } from "./ui/button";
-import { Show, UserButton } from "@clerk/nextjs";
+import { Show, UserButton, useAuth } from "@clerk/nextjs";
+import { useEffect } from "react";
 
 export default function Navbar() {
+  const { isSignedIn } = useAuth();
+
+  // THE FIX: Watch for sign-outs and nuke the local data
+  useEffect(() => {
+
+    if (isSignedIn === false) {
+      localStorage.removeItem("weaveMatchResult");
+      localStorage.removeItem("weaveActiveChat");
+      localStorage.removeItem("weaveSeenIds");
+
+      localStorage.removeItem("weaveStep");
+      localStorage.removeItem("weaveState");
+    }
+  }, [isSignedIn]);
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-6 bg-[#0A3323]/80 backdrop-blur-2xl border-b border-[#F7F4D5]/10">
       {/* Logo */}

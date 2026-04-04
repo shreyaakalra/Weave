@@ -22,12 +22,12 @@ export default function MatchRevealCard({
   matchResult, 
   state, 
   onPass,
-  onChat // <-- Add this here
+  onChat
 }: { 
   matchResult: MatchResponse;
   state: OnboardingState;
   onPass: () => void;
-  onChat: () => void; // <-- And here
+  onChat: () => void;
 }) {
 
   // --- 1. Basic Profile Info ---
@@ -39,114 +39,130 @@ export default function MatchRevealCard({
   // --- 2. Calculate Energy ---
   let energyScore = 50;
   if (state.energy === matchAttrs.energy) {
-    energyScore = 98; // Exact match
+    energyScore = 98; 
   } else if (state.energy === "both" || matchAttrs.energy === "both") {
-    energyScore = 78; // One person is adaptable
+    energyScore = 78; 
   } else {
-    energyScore = 45; // Opposites
+    energyScore = 45; 
   }
 
   // --- 3. Calculate Vibe ---
   const vibeTraits = ['mood', 'depth', 'schedule', 'genre', 'friendship_type'];
   let matchingTraits = 0;
   vibeTraits.forEach(trait => {
-    // Note: your state uses 'friendship', the DB uses 'friendship_type'
     const myTrait = trait === 'friendship_type' ? state.friendship : state[trait as keyof typeof state];
     if (myTrait === matchAttrs[trait]) matchingTraits++;
   });
-  // Baseline 40%, plus up to 60% based on exact trait overlaps
   const vibeScore = Math.round(40 + (matchingTraits / vibeTraits.length) * 60);
 
   // --- 4. Calculate Interests ---
-  // Assuming 130 is a "perfect" raw score from TigerGraph based on your data. Caps at 99%.
   const rawScore = matchAttrs.score || 72;
   const interestScore = Math.min(99, Math.round((rawScore / 130) * 100));
 
   return (
     <AnimatePresence>
+      {/* FULL BLEED BACKGROUND TAKEOVER */}
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="flex flex-col items-center text-center py-8 px-2"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[90] flex flex-col items-center justify-center w-full h-[100dvh] bg-[#0A3323] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#0d3d29] to-[#0A3323] overflow-y-auto px-4 py-8"
       >
-        <div className="text-xs tracking-[.2em] text-[#F7F4D5]/40 uppercase mb-3 font-medium">
-          Match found
-        </div>
-        <h1 className="text-4xl md:text-5xl font-black mb-2 text-[#F7F4D5] leading-tight">
-          Meet your person.
-        </h1>
-        <p className="text-[#F7F4D5]/50 text-sm mb-10">
-          TigerGraph found your strongest overlap.
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+          className="flex flex-col items-center text-center w-full max-w-md mx-auto"
+        >
+          {/* Header Text */}
+          <div className="text-xs md:text-sm tracking-[.2em] text-[#F7F4D5]/40 uppercase mb-3 font-medium">
+            Match found
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black mb-3 text-[#F7F4D5] leading-tight drop-shadow-lg">
+            Meet your person.
+          </h1>
+          <p className="text-[#F7F4D5]/50 text-sm md:text-base mb-12">
+            TigerGraph found your strongest overlap.
+          </p>
 
-        {/* Match card */}
-        <div className="w-full max-w-sm relative">
-          {/* Score ring */}
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute -top-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-[#0A3323] border-2 border-[#F7F4D5]/20 flex flex-col items-center justify-center z-10"
-          >
-            <span className="text-lg font-black text-[#F7F4D5] leading-none">{interestScore}%</span>
-            <span className="text-[9px] text-[#F7F4D5]/40 uppercase tracking-wide leading-none mt-0.5">match</span>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-[#0d3d29] border border-[#1a5c38] rounded-3xl pt-12 pb-8 px-8"
-          >
-            {/* Avatar */}
-            <div className="w-14 h-14 rounded-full bg-[#F7F4D5]/10 border border-[#F7F4D5]/20 flex items-center justify-center mx-auto mb-4">
-              <span className="text-xl font-black text-[#F7F4D5]">
-                {nickname.charAt(0).toUpperCase()}
-              </span>
-            </div>
-
-            <div className="text-2xl font-black text-[#F7F4D5] mb-1">{nickname}</div>
-            {city && (
-              <div className="text-sm text-[#F7F4D5]/40 mb-4">{city}</div>
-            )}
-            {bio && (
-              <p className="text-sm text-[#F7F4D5]/60 leading-relaxed mb-6 border-t border-[#F7F4D5]/10 pt-4">
-                {bio}
-              </p>
-            )}
-
-            {/* Compatibility breakdown - NOW USING REAL MATH */}
-            <div className="grid grid-cols-3 gap-2 mb-8">
-              {[
-                { label: "Interests", val: interestScore },
-                { label: "Energy", val: energyScore },
-                { label: "Vibe", val: vibeScore },
-              ].map(d => (
-                <div key={d.label} className="bg-[#0A3323] rounded-2xl p-3 text-center">
-                  <div className="text-lg font-black text-[#F7F4D5]">{d.val}%</div>
-                  <div className="text-[10px] text-[#F7F4D5]/40 uppercase tracking-wide mt-0.5">{d.label}</div>
-                </div>
-              ))}
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onChat}
-              className="w-full py-4 bg-[#F7F4D5] text-[#0A3323] font-bold rounded-2xl text-base tracking-wide"
+          {/* Match card */}
+          <div className="w-full relative mt-4">
+            {/* Score ring - Pops out the top */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6, ease: [0.17, 1.1, 0.4, 1.2] }}
+              className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full bg-[#0d3d29] border-[3px] border-[#F7F4D5]/20 flex flex-col items-center justify-center z-10 shadow-[0_0_30px_rgba(247,244,213,0.1)]"
             >
-              Start chatting →
-            </motion.button>
+              <span className="text-xl md:text-2xl font-black text-[#F7F4D5] leading-none">{interestScore}%</span>
+              <span className="text-[10px] text-[#F7F4D5]/50 uppercase tracking-widest leading-none mt-1">match</span>
+            </motion.div>
 
-            <button
-              onClick={onPass}
-              className="w-full mt-3 py-3 text-[#F7F4D5]/30 text-sm hover:text-[#F7F4D5]/60 transition-colors"
+            {/* Main Card Body */}
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-[#0A291C]/80 backdrop-blur-xl border border-[#1a5c38] rounded-[2rem] pt-14 pb-8 px-6 md:px-8 shadow-2xl w-full"
             >
-              Pass
-            </button>
-          </motion.div>
-        </div>
+              {/* Avatar */}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#F7F4D5]/20 to-[#F7F4D5]/5 border border-[#F7F4D5]/30 flex items-center justify-center mx-auto mb-5 shadow-inner">
+                <span className="text-2xl md:text-3xl font-black text-[#F7F4D5]">
+                  {nickname.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              <div className="text-3xl font-black text-[#F7F4D5] mb-1">{nickname}</div>
+              {city && (
+                <div className="text-sm font-medium tracking-wide text-[#F7F4D5]/40 mb-5">{city}</div>
+              )}
+              {bio && (
+                <p className="text-sm md:text-base text-[#F7F4D5]/70 leading-relaxed mb-8 border-t border-[#F7F4D5]/10 pt-5">
+                  {bio}
+                </p>
+              )}
+
+              {/* Compatibility breakdown */}
+              <div className="grid grid-cols-3 gap-3 mb-8">
+                {[
+                  { label: "Interests", val: interestScore },
+                  { label: "Energy", val: energyScore },
+                  { label: "Vibe", val: vibeScore },
+                ].map((d, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 + (i * 0.1) }}
+                    key={d.label} 
+                    className="bg-[#081F15] border border-[#F7F4D5]/5 rounded-2xl p-3 md:p-4 text-center"
+                  >
+                    <div className="text-lg md:text-xl font-black text-[#F7F4D5]">{d.val}%</div>
+                    <div className="text-[9px] md:text-[10px] text-[#F7F4D5]/40 uppercase tracking-widest mt-1">{d.label}</div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onChat}
+                  className="w-full py-4 md:py-5 bg-[#F7F4D5] text-[#0A3323] font-black rounded-2xl text-base md:text-lg tracking-wide shadow-[0_0_20px_rgba(247,244,213,0.3)] hover:shadow-[0_0_30px_rgba(247,244,213,0.5)] transition-shadow"
+                >
+                  Start chatting →
+                </motion.button>
+
+                <button
+                  onClick={onPass}
+                  className="w-full py-3 text-[#F7F4D5]/40 text-sm md:text-base font-medium hover:text-[#F7F4D5] transition-colors rounded-xl hover:bg-[#F7F4D5]/5"
+                >
+                  Pass
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   );
