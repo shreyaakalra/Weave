@@ -35,11 +35,12 @@ This helps create a **deep profile**, not just a surface-level one.
 
 ## Tech Stack
 
-- **Frontend:** Next.js (App Router)
+- **Frontend:** Next.js (App Router) + React
+- **Language:** TypeScript, JavaScript
 - **Styling:** Tailwind CSS
-- **Animations:** Framer Motion
-- **Language:** TypeScript
-- **State Management:** React useState
+- **Authentication:** Clerk
+- **AI Integration:** Grok API (Generative AI)
+- **Graph Engine:** TigerGraph (for matching logic)
 
 ---
 
