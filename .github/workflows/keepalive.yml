@@ -1,0 +1,14 @@
+name: Keep TigerGraph Awake
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Runs every 30 minutes
+  workflow_dispatch: # Allows you to run it manually from GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API Route
+        # REPLACE THIS URL with your actual live Vercel URL
+        run: curl -s https://your-actual-vercel-url.vercel.app/api/keepalive
