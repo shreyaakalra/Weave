@@ -1,6 +1,19 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware();
+const isPublicRoute = createRouteMatcher([
+  '/', 
+  '/features', 
+  '/how-it-works', 
+  '/onboarding(.*)', // <-- Add your onboarding route here!
+  '/sign-in(.*)', 
+  '/sign-up(.*)'
+]);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+   await auth.protect(); // Kicks them to the Sign In page if they aren't on a public route
+  }
+});
 
 export const config = {
   matcher: [

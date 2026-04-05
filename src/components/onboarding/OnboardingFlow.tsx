@@ -1,7 +1,7 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@clerk/nextjs";
 import StepBasics from "./StepBasics";
 import StepInterests from "./StepInterests";
 import StepEnergy from "./StepEnergy";
@@ -13,6 +13,7 @@ import StepGenre from "./StepGenre";
 import StepFriendship from "./StepFriendship";
 import StepBio from "./StepBio";
 import DoneScreen from "./DoneScreen";
+import Link from "next/link";
 
 export type OnboardingState = {
   name: string;
@@ -52,6 +53,19 @@ const defaultState: OnboardingState = {
   happything: "",
 };
 
+const ALL_STORAGE_KEYS = [
+  "weaveState",
+  "weaveStep",
+  "weaveMatchResult",
+  "weaveActiveChat",
+  "weaveSeenIds",
+];
+
+function clearAllStorage() {
+  if (typeof window === "undefined") return;
+  ALL_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+}
+
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
@@ -63,30 +77,44 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 export default function OnboardingFlow() {
-  const [isMounted, setIsMounted] = useState(false);
+  const { isSignedIn, isLoaded } = useAuth();
+  const hasInitialized = useRef(false);
 
-  // Lazy initializers read localStorage once on first render — no effect needed
+  // Lazy initializers — run once on first render, never again
   const [state, setState] = useState<OnboardingState>(() =>
     loadFromStorage<OnboardingState>("weaveState", defaultState)
   );
   const [step, setStep] = useState<number>(() =>
     loadFromStorage<number>("weaveStep", 0)
   );
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Hydration lock
+  // This effect runs once after Clerk resolves.
+  // We use a ref guard so it never runs twice.
   useEffect(() => {
-    const timer = setTimeout(() => setIsMounted(true), 0);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!isLoaded) return;
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
 
-  // Persist whenever state or step changes (only after mount)
+    if (!isSignedIn) {
+      clearAllStorage();
+      // Use functional updates — these are batched by React, not cascading
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      setState(defaultState);
+      setStep(0);
+    }
+
+    setIsMounted(true);
+  }, [isLoaded, isSignedIn]);
+
+  // Persist to localStorage after mount
   useEffect(() => {
     if (!isMounted) return;
     try {
       localStorage.setItem("weaveState", JSON.stringify(state));
       localStorage.setItem("weaveStep", step.toString());
     } catch {
-      // Ignore storage errors
+      // ignore
     }
   }, [state, step, isMounted]);
 
@@ -116,26 +144,16 @@ export default function OnboardingFlow() {
           state.nickname.trim() !== "" &&
           state.city.trim() !== ""
         );
-      case 1:
-        return state.interests.length > 0;
-      case 2:
-        return state.energy !== "";
-      case 3:
-        return state.mood !== "";
-      case 4:
-        return state.depth !== "";
-      case 5:
-        return state.schedule !== "";
-      case 6:
-        return Object.keys(state.totAnswers).length === 5;
-      case 7:
-        return state.genre !== "";
-      case 8:
-        return state.friendship !== "";
-      case 9:
-        return state.bio.trim().length >= 10;
-      default:
-        return true;
+      case 1: return state.interests.length > 0;
+      case 2: return state.energy !== "";
+      case 3: return state.mood !== "";
+      case 4: return state.depth !== "";
+      case 5: return state.schedule !== "";
+      case 6: return Object.keys(state.totAnswers).length === 5;
+      case 7: return state.genre !== "";
+      case 8: return state.friendship !== "";
+      case 9: return state.bio.trim().length >= 10;
+      default: return true;
     }
   };
 
@@ -160,11 +178,13 @@ export default function OnboardingFlow() {
     <div className="relative min-h-screen bg-[#0A3323] text-[#F7F4D5] font-sans overflow-hidden px-6 py-8 md:px-12">
       <div className="relative z-10 max-w-2xl mx-auto">
 
-        {/* Top bar — always show wordmark, hide counter on done screen */}
+        {/* Top bar */}
         <div className="flex items-center justify-between mb-8">
-          <div className="font-serif text-xl font-black tracking-tighter">
-            Weave.
-          </div>
+          <Link href={"/"}>
+            <div className="font-serif text-xl font-black tracking-tighter">
+              Weave.
+            </div>
+          </Link>
           {!isDoneScreen && (
             <div className="text-xs tracking-widest text-[#F7F4D5]/50 font-medium">
               {step + 1} of {TOTAL_STEPS}
@@ -172,7 +192,7 @@ export default function OnboardingFlow() {
           )}
         </div>
 
-        {/* Progress bar — only visible during question steps */}
+        {/* Progress bar */}
         {!isDoneScreen && (
           <div className="h-px bg-[#F7F4D5]/10 mb-10 relative">
             <motion.div
@@ -197,7 +217,7 @@ export default function OnboardingFlow() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation — hidden on done screen */}
+        {/* Navigation */}
         {!isDoneScreen && (
           <div className="flex justify-center mt-12">
             <div className="flex gap-3 w-full max-w-[420px]">
