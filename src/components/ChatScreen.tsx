@@ -3,9 +3,14 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@clerk/nextjs";
+import { createClient } from "@supabase/supabase-js";
 import { MatchResponse } from "./onboarding/MatchRevealCard";
 import { Send, List, MessageSquare, RefreshCw, Sparkles, ChevronRight, ArrowLeft, X } from "lucide-react";
 
+// --- Supabase Setup ---
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 type Message = {
   id: string;
@@ -35,7 +40,6 @@ const difficultyColor: Record<string, string> = {
   Adventure: "bg-[#F7F4D5]/6  text-[#F7F4D5]/40 border-[#F7F4D5]/12",
 };
 
-
 function LoadingSkeleton({ rows }: { rows: number }) {
   return (
     <div className="flex flex-col gap-3">
@@ -61,8 +65,6 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
     </div>
   );
 }
-
-
 
 function SidePanelContent({
   activeTab,
@@ -140,7 +142,6 @@ function SidePanelContent({
 
   return (
     <div className="flex flex-col h-full bg-[#081f15] overflow-hidden">
-      {/* Header — mobile only shows back button */}
       {isMobile && (
         <div className="flex items-center justify-between px-4 pt-6 pb-4 shrink-0 bg-[#081f15]">
           <button
@@ -153,7 +154,6 @@ function SidePanelContent({
         </div>
       )}
 
-      {/* Tab bar */}
       <div className="flex border-b border-[#F7F4D5]/8 shrink-0">
         {(["bucketlist", "icebreakers"] as SideTab[]).map((tab) => {
           const isActive = activeTab === tab;
@@ -180,10 +180,8 @@ function SidePanelContent({
         })}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <AnimatePresence mode="wait">
-
           {activeTab === "bucketlist" && (
             <motion.div
               key="bucket"
@@ -290,7 +288,7 @@ function SidePanelContent({
                     transition={{ duration: 0.3, delay: i * 0.07 }}
                     onClick={() => {
                       onInjectIcebreaker(item.prompt);
-                      if (isMobile && onClose) onClose(); // go back to chat on mobile after picking
+                      if (isMobile && onClose) onClose();
                     }}
                     className="flex items-start gap-3 p-4 rounded-2xl border bg-[#0c2318] border-[#F7F4D5]/8 hover:border-[#F7F4D5]/20 hover:bg-[#0f2e1e] text-left group transition-all duration-200 w-full active:scale-[0.98]"
                   >
@@ -311,55 +309,141 @@ function SidePanelContent({
               )}
             </motion.div>
           )}
-
         </AnimatePresence>
       </div>
     </div>
   );
 }
 
-
 export default function ChatScreen({
   match,
   onClose,
+  chatId = "test-room-1", // Using a default room for hackathon testing
 }: {
   match: MatchResponse;
   onClose: () => void;
+  chatId?: string;
 }) {
   const { user } = useUser();
   const nickname = match.attributes?.nickname || "Your Match";
 
-  const [messages, setMessages]         = useState<Message[]>([
-    {
-      id: "1",
-      senderId: match.v_id,
-      text: `Hey! Looks like TigerGraph paired us up. 70% Vibe match is pretty high!`,
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputText, setInputText]       = useState("");
-  const [activeTab, setActiveTab]       = useState<SideTab>("icebreakers");
-  
-  const [showPanel, setShowPanel]       = useState(true); 
-  const [mobileView, setMobileView]     = useState<"chat" | "panel">("chat");
+  // --- Real-time Chat State ---
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // --- Timer & Decision State ---
+  const TIME_LIMIT = 600; // Change to 10 if you want to test the modal quickly
+  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const showDecisionModal = timeLeft <= 0; // The clean ESLint fix!
+  const [hasDecided, setHasDecided] = useState<"keep" | "new" | null>(null);
+
+  // --- UI State ---
+  const [activeTab, setActiveTab] = useState<SideTab>("icebreakers");
+  const [showPanel, setShowPanel] = useState(true); 
+  const [mobileView, setMobileView] = useState<"chat" | "panel">("chat");
 
   const myInterests: string[] = Array.isArray(user?.unsafeMetadata?.interests)
     ? (user.unsafeMetadata.interests as string[])
     : [];
 
+  // --- 1. Supabase Data Fetching & Realtime Listener ---
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("chat_id", chatId)
+        .order("created_at", { ascending: true });
+
+      if (data) {
+        setMessages(
+          data.map((m) => ({
+            id: m.id,
+            senderId: m.sender_id,
+            text: m.text,
+            timestamp: new Date(m.created_at),
+          }))
+        );
+      }
+    };
+    fetchMessages();
+
+    const channel = supabase
+      .channel("realtime-chat")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          const newMsg = payload.new;
+          if (newMsg.sender_id !== user?.id) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: newMsg.id,
+                senderId: newMsg.sender_id,
+                text: newMsg.text,
+                timestamp: new Date(newMsg.created_at),
+              },
+            ]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, user?.id]);
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = (e: React.FormEvent) => {
+  // --- 2. Clean Timer Logic ---
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0; // Hit zero, modal will trigger based on derived state
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // --- 3. Handle Send ---
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !user) return;
+
+    const textToSend = inputText;
+    const tempId = Date.now().toString();
+
+    // Optimistic Update
     setMessages((prev) => [
       ...prev,
-      { id: Date.now().toString(), senderId: user.id, text: inputText, timestamp: new Date() },
+      { id: tempId, senderId: user.id, text: textToSend, timestamp: new Date() },
     ]);
     setInputText("");
+
+    // Write to Supabase
+    await supabase.from("messages").insert({
+      chat_id: chatId,
+      sender_id: user.id,
+      text: textToSend,
+    });
+  };
+
+  const handleDecision = (decision: "keep" | "new") => {
+    setHasDecided(decision);
+    if (decision === "new") {
+      onClose();
+    }
   };
 
   const openPanel = (tab: SideTab) => {
@@ -436,6 +520,11 @@ export default function ChatScreen({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 flex flex-col items-center">
         <div className="w-full max-w-4xl space-y-4">
+          {messages.length === 0 && (
+             <div className="text-center text-[#F7F4D5]/40 text-sm mt-10">
+               Timer is ticking. Say hi!
+             </div>
+          )}
           {messages.map((msg) => {
             const isMe = msg.senderId === user?.id;
             return (
@@ -488,67 +577,119 @@ export default function ChatScreen({
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex w-full h-[100dvh] bg-[#0A3323] overflow-hidden font-sans text-[#F7F4D5]">
+    <div className="fixed inset-0 z-[100] flex flex-col w-full h-[100dvh] bg-[#0A3323] overflow-hidden font-sans text-[#F7F4D5]">
       
-      {/* ── MOBILE layout: full-screen, swaps between chat and panel ── */}
-      <div className="flex md:hidden w-full h-full">
-        <AnimatePresence mode="wait">
-          {mobileView === "chat" ? (
-            <motion.div
-              key="mobile-chat"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.25 }}
-              className="w-full h-full"
-            >
-              {ChatColumn}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="mobile-panel"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.25 }}
-              className="w-full h-full bg-[#081f15]"
-            >
-              <SidePanelContent
-                {...sharedPanelProps}
-                onClose={closePanel}
-                isMobile
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* ── TIMER BAR ── */}
+      <div className="w-full h-1.5 bg-[#08261a] shrink-0">
+        <motion.div 
+          className="h-full bg-[#F7F4D5]/80"
+          initial={{ width: "100%" }}
+          animate={{ width: `${(timeLeft / TIME_LIMIT) * 100}%` }}
+          transition={{ ease: "linear", duration: 1 }}
+        />
       </div>
 
-      {/* ── DESKTOP layout: side-by-side ── */}
-      <div className="hidden md:flex w-full h-full">
-        {/* Chat */}
-        <div className="flex-1 min-w-0 h-full">
-          {ChatColumn}
+      {/* ── CINEMATIC POPUP ── */}
+      <AnimatePresence>
+        {showDecisionModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[200] bg-[#0A3323]/90 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="bg-[#08261a] border border-[#F7F4D5]/20 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl"
+            >
+              <h2 className="text-2xl font-bold mb-2 text-[#F7F4D5]">Time&apos;s up.</h2>
+              <p className="text-[#F7F4D5]/60 mb-8 text-sm leading-relaxed">
+                You&apos;ve been chatting for 10 minutes. Do you want to unlock profiles and keep talking, or find someone new?
+              </p>
+
+              {hasDecided ? (
+                <div className="p-4 rounded-xl bg-[#F7F4D5]/10 text-[#F7F4D5]">
+                  Waiting for {nickname} to decide...
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => handleDecision("keep")}
+                    className="w-full py-4 bg-[#F7F4D5] text-[#0A3323] font-bold rounded-xl hover:scale-[1.02] transition-transform"
+                  >
+                    Keep Talking
+                  </button>
+                  <button 
+                    onClick={() => handleDecision("new")}
+                    className="w-full py-4 border border-[#F7F4D5]/20 text-[#F7F4D5]/70 font-medium rounded-xl hover:bg-[#F7F4D5]/10 transition-colors"
+                  >
+                    Find Someone New
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex-1 flex w-full min-h-0 relative">
+        {/* ── MOBILE layout: full-screen, swaps between chat and panel ── */}
+        <div className="flex md:hidden w-full h-full">
+          <AnimatePresence mode="wait">
+            {mobileView === "chat" ? (
+              <motion.div
+                key="mobile-chat"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+                className="w-full h-full"
+              >
+                {ChatColumn}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="mobile-panel"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.25 }}
+                className="w-full h-full bg-[#081f15]"
+              >
+                <SidePanelContent
+                  {...sharedPanelProps}
+                  onClose={closePanel}
+                  isMobile
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Side panel */}
-        <AnimatePresence>
-          {showPanel && (
-            <motion.div
-              key="desktop-panel"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 380 }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="shrink-0 h-full border-l border-[#F7F4D5]/10 bg-[#081f15] overflow-hidden"
-            >
-              <div className="w-[380px] h-full">
-                <SidePanelContent {...sharedPanelProps} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ── DESKTOP layout: side-by-side ── */}
+        <div className="hidden md:flex w-full h-full">
+          {/* Chat */}
+          <div className="flex-1 min-w-0 h-full">
+            {ChatColumn}
+          </div>
+
+          {/* Side panel */}
+          <AnimatePresence>
+            {showPanel && (
+              <motion.div
+                key="desktop-panel"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 380 }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="shrink-0 h-full border-l border-[#F7F4D5]/10 bg-[#081f15] overflow-hidden"
+              >
+                <div className="w-[380px] h-full">
+                  <SidePanelContent {...sharedPanelProps} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-      
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
-import { OnboardingState } from "./OnboardingFlow";
+import { OnboardingState } from "./OnboardingFlow"; // Adjust path if needed
 import MatchRevealCard, { MatchResponse } from "./MatchRevealCard";
 import LoadingGraph from "./LoadingGraph";
 import AuthWall from "./AuthWall";
-import ChatScreen from "../ChatScreen";
+import ChatScreen from "../ChatScreen"; // Adjust path if needed
 
 // ─── localStorage helpers (safe, typed) ──────────────────────────────────────
 
@@ -33,10 +33,16 @@ function lsDel(key: string): void {
   } catch {}
 }
 
+// ─── The Secret Handshake ───────────────────────────────────────────────────
+// This guarantees both users generate the exact same room ID, no matter who matched who!
+const generateChatId = (id1: string, id2: string) => {
+  return [id1, id2].sort().join("_");
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DoneScreen({ state }: { state: OnboardingState }) {
-  // ── 1. Hydration gate — nothing renders until localStorage is read ──────────
+  // ── 1. Hydration gate ──────────
   const [isRestored, setIsRestored] = useState(false);
 
   // ── 2. Core state ──────────────────────────────────────────────────────────
@@ -55,7 +61,6 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
 
-  // ── 3. Prevent double-fire on sign-in effect ───────────────────────────────
   const matchAttemptInFlight = useRef(false);
 
   const { isSignedIn, user, isLoaded } = useUser();
@@ -85,7 +90,7 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
     lsSet("weaveActiveChat", activeChat);
   }, [activeChat, isRestored]);
 
-  // ── 7. Core match-fetch logic (WITH FALLBACK SAFETY NET) ──────────────────
+  // ── 7. Core match-fetch logic ─────────────────────────────────────────────
   const handleFindMatch = useCallback(
     async (clerkId: string) => {
       if (matchAttemptInFlight.current) return;
@@ -113,7 +118,6 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
           lsSet("weaveMatchResult", match);
           setMatchResult(match);
         } else {
-          // THE FALLBACK: If TigerGraph returns an empty array, generate a test user!
           console.warn("No match returned from API — generating fallback user for testing.");
           const fallbackMatch: MatchResponse = {
             v_id: `test_user_${Date.now()}`,
@@ -134,7 +138,6 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
         }
       } catch (error) {
         console.error("Match failed", error);
-        // Even on total failure, let's give you the test user so you aren't stuck
         const fallbackMatch: MatchResponse = {
             v_id: `error_user_${Date.now()}`,
             attributes: { nickname: "Graph Error", bio: "The API failed, but here I am!", score: 50 }
@@ -165,7 +168,7 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
     handleFindMatch(user.id);
   }, [isLoaded, isSignedIn, user, showSignUp, matchResult, activeChat, isAnalyzing, handleFindMatch]);
 
-  // ── 9. Pass handler — atomically update seenIds then clear match ───────────
+  // ── 9. Pass handler ───────────────────────────────────────────────────────
   const handlePass = useCallback(() => {
     if (!matchResult) return;
     const newSeenIds = [...seenIdsRef.current, matchResult.v_id];
@@ -178,10 +181,15 @@ export default function DoneScreen({ state }: { state: OnboardingState }) {
 
   if (!isRestored) return null;
 
-  if (activeChat) {
+  // 🌟 THE BRIDGE: If there is an active chat AND the user is loaded, render the ChatScreen
+  if (activeChat && user) {
+    // Generate the unique room ID dynamically!
+    const roomId = generateChatId(user.id, activeChat.v_id);
+
     return (
       <ChatScreen
         match={activeChat}
+        chatId={roomId} // Pass the generated ID to Supabase!
         onClose={() => {
           lsDel("weaveActiveChat");
           setActiveChat(null);
